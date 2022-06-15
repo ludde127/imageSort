@@ -3,8 +3,10 @@ from dataclasses import dataclass
 from PIL import Image
 from PIL.ExifTags import TAGS
 from pprint import pprint
+import datetime
 
 time_field = "DateTime"  # This seems to be a common time_field
+
 
 
 def get_metadata(path: pathlib.Path, print_=False) -> dict[str]:
@@ -43,3 +45,48 @@ class Media:
 
     def show(self):
         pprint({"Path": self.path, "Filename": self.filename, "Metadata": self.metadata})
+
+    def datetime(self, as_timestamp=False):
+        if "DateTime" in self.metadata:
+            dt = datetime.datetime.strptime(self.metadata["DateTime"], "%Y:%m:%d %H:%M:%S")
+            if as_timestamp:
+                return dt.timestamp()
+            return dt
+        else:
+            raise KeyError("Datetime does not exist in metadata.")
+
+
+class MediaHolder(list):
+    def sort_by_time(self):
+        self.sort(key=lambda m: m.datetime(as_timestamp=True))
+
+    def into_groups(self, format_: str):
+        """Groups the media files into groups according to the given format and their datetime.
+            M stands for month, D for day and Y for year, all are zero-padded and in decimal form.
+            For example Y/M/D will group the images by year, then month and last day.
+             It must be in order bigger to smaller.
+        """
+        splat = format_.split("/")
+        structure_depth = format_.count("/")
+        year = "Y"
+        month = "M"
+        day = "D"
+
+        def valid_format() -> bool:
+            """Checks that the format is valid"""
+            assert 3 >= structure_depth > 0
+            past = None
+            for sub in splat:
+                if past is None:
+                    past = sub
+                else:
+                    if past == year:
+                        assert sub == month or sub == day
+                    elif past == month:
+                        assert sub == day
+                    else:
+                        raise ArithmeticError("Hmm wtf")
+            return True
+        assert valid_format()
+
+
