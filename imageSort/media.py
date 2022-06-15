@@ -1,13 +1,10 @@
 import pathlib
-from typing import Union
-
 from backend import safe_copy
 from dataclasses import dataclass
 from PIL import Image
 from PIL.ExifTags import TAGS
 from pprint import pprint
 import datetime
-from functools import lru_cache
 
 time_field = "DateTime"  # This seems to be a common time_field
 
@@ -49,7 +46,6 @@ class Media:
     def show(self):
         pprint({"Path": self.path, "Filename": self.filename, "Metadata": self.metadata})
 
-    @lru_cache(2)
     def datetime(self, as_timestamp=False):
         if "DateTime" in self.metadata:
             dt = datetime.datetime.strptime(self.metadata["DateTime"], "%Y:%m:%d %H:%M:%S")
@@ -76,8 +72,9 @@ class MediaHolder(list):
         dict_representation = dict()
         for file in self:
             try:
-                dt: Union[datetime.datetime, None] = file.datetime()
-            except KeyError:
+                dt = file.datetime()
+            except KeyError as e:
+                print(e)
                 dt = None
             if dt is not None:
                 try:
@@ -101,7 +98,7 @@ class MediaHolder(list):
                     for image in name_description[year][month][day]:
                         safe_copy(image.path,
                                   destination_folder.joinpath(str(year)).joinpath(str(month)).
-                                  joinpath(str(day)).joinpath(image.filename))
+                                  joinpath(str(day)))
                         self.remove(image)
         for file in self:
             """Those with no datetime"""
