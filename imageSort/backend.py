@@ -1,25 +1,15 @@
 import os
 import shutil
-from media import Media, MediaHolder
 import pathlib
-import tkinter as tk
-from tkinter import filedialog
-
-window = tk.Tk()
-window.withdraw()
 
 
-def select_file() -> pathlib.Path:
-    return pathlib.Path(filedialog.askopenfilename())
+def safe_copy(src: pathlib.Path, dst: pathlib.Path):
+    if dst.exists():
+        raise FileExistsError(f"Another file {dst} already_exists. Skipping.")
+    else:
+        os.makedirs(dst, exist_ok=True)
+        shutil.copy2(str(src), str(dst), follow_symlinks=True)
 
 
-if __name__ == "__main__":
-    holder: MediaHolder[Media] = MediaHolder()
-    holder.append(Media.from_path(select_file()))
-    holder.append(Media.from_path(select_file()))
-    """print(pic.datetime())
-    print(pic.datetime(as_timestamp=True))
-    print(pic.show())"""
-    holder.sort_by_time()
-    for image in holder:
-        image.show()
+def all_files_in_folder(directory_path: pathlib.Path) -> list[pathlib.Path]:
+    return [p for p in [pathlib.Path(path) for path in os.listdir(directory_path)] if p.is_file()]
