@@ -1,12 +1,18 @@
 import os
 import shutil
 import pathlib
+import time
+
 import yaml
 
 
 def safe_copy(src: pathlib.Path, dst: pathlib.Path):
     if dst.joinpath(src.name).exists():
-        raise FileExistsError(f"Another file {dst} already_exists. Skipping.")
+        name, ext = src.name.split(".")
+        name + "[" + str(str(time.time()).split(".")) + "]"
+        src = src.with_name(name+"."+ext)
+        os.makedirs(dst, exist_ok=True)
+        shutil.copy2(str(src), str(dst), follow_symlinks=True)
     else:
         os.makedirs(dst, exist_ok=True)
         shutil.copy2(str(src), str(dst), follow_symlinks=True)
@@ -25,10 +31,34 @@ def read_yaml(file, safe=True):
     return data
 
 
-all_extensions = set(read_yaml("extensions/images.yaml")["formats"]). \
-    union(set(read_yaml("extensions/media.yaml")["formats"]). \
-          union(set(read_yaml("extensions/videos.yaml")["formats"])))
-all_extensions = {e.lower() for e in all_extensions}
+def write_txt_row(file, data, newline=True, error_handled=False):
+    """Appends the data to file"""
+    data = str(data)
+    try:
+        if isinstance(data, list) or isinstance(data, set) or isinstance(data, tuple):
+            with open(file, "a+") as f:
+                for d in data:
+                    f.write(f"{d}\n")
+        elif len(str(data).replace(" ", "")) > 0:
+            with open(file, "a+") as f:
+                if newline:
+                    f.write(f"{data}\n")
+                else:
+                    f.write(data)
+    except FileNotFoundError as e:
+        print(e)
+        os.makedirs(pathlib.Path(file).parent)
+        if not error_handled:
+            write_txt_row(file, data, error_handled=True)
+        else:
+            raise FileNotFoundError
+
+
+image_exts = {e.lower() for e in set(read_yaml("extensions/images.yaml")["formats"])}
+media_exts = {e.lower() for e in set(read_yaml("extensions/media.yaml")["formats"])}
+video_exts = {e.lower() for e in set(read_yaml("extensions/videos.yaml")["formats"])}
+
+all_extensions = image_exts.union(media_exts.union(video_exts))
 
 
 def walker(dir, extensions: list[str]):
