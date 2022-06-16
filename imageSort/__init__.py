@@ -7,7 +7,7 @@ import pathlib
 import tkinter as tk
 from tkinter import Button
 from tkinter import filedialog
-from backend import walker, all_extensions, safe_copy, write_txt_row
+from backend import walker, all_extensions, safe_copy, write_txt_row, CopyFailed
 from tkinter import ttk
 
 WIDTH = 500
@@ -18,7 +18,7 @@ class UI:
     source = None
     dest = None
     display_text = "Select a source and a destination\n folder to sort images."
-    error_filename = "Error file" + str(int(time.time())) + ".txt"
+    error_filename = "Error file " + str(int(time.time())) + ".txt"
 
     def __init__(self, master):
         self.text_display = tk.Label(master, text=self.display_text, bg="white")
@@ -40,23 +40,31 @@ class UI:
     def begin(self):
         if self.source is not None and self.dest is not None:
             first = True
+            to_move = 0
+            moved = 0
             for output in fast_copy_for_ui(self.source, self.dest):
                 if first:
-                    self.display(f"Began copying and sorting {len(output)} media files.")
-                    self.progress_bar["maximum"] = len(output)
+                    to_move = len(output)
+                    self.display(f"Began copying and sorting {to_move} media files.")
+                    self.progress_bar["maximum"] = to_move
 
                     first = False
                 elif isinstance(output, int):
+                    moved += output
                     self.progress_bar["value"] += output
                     self.progress_bar.update()
-                else:
-                    self.display(f"Errored with error: {output}", error=True)
-            self.display("Finished sorting the files to the new destination!")
+                elif isinstance(output, CopyFailed):
+                    write_txt_row(self.error_filename, f"Failed to copy and sort {output.media_path}")
+                    self.display(f"Failed to copy and sort {output.media_path}", error=True, cont=True)
+            self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
         else:
             self.display("You must select both a source folder and an\n destination folder before beginning.")
 
-    def display(self, text: str, error=False):
-        self.text_display["text"] = text
+    def display(self, text: str, error=False, cont=False):
+        if not cont:
+            self.text_display["text"] = text
+        else:
+            self.text_display["text"] = text + ", continuing copy."
         if error:
             write_txt_row(self.error_filename, text)
 
@@ -111,7 +119,7 @@ def fast_copy_for_ui(src: pathlib.Path, dst: pathlib.Path):
                 os.rename(full_dst.joinpath(name_full_dst), new_name)
             yield 1
         except Exception as e:
-            yield e
+            yield CopyFailed(str(e), str(media.path))
 
 
 def run(src=None, dst=None):

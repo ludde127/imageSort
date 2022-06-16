@@ -54,6 +54,12 @@ def write_txt_row(file, data, newline=True, error_handled=False):
             raise FileNotFoundError
 
 
+class CopyFailed(Exception):
+    def __init__(self, msg:str, media_path: str):
+        self.msg = msg
+        self.media_path = media_path
+
+
 image_exts = {e.lower() for e in set(read_yaml("extensions/images.yaml")["formats"])}
 media_exts = {e.lower() for e in set(read_yaml("extensions/media.yaml")["formats"])}
 video_exts = {e.lower() for e in set(read_yaml("extensions/videos.yaml")["formats"])}
