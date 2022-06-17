@@ -87,7 +87,7 @@ class Media:
             except Exception as e:
                 raise e
 
-        if "DateTime" in self.metadata:
+        if self.metadata is not None and "DateTime" in self.metadata:
             try:
                 dt = datetime.datetime.strptime(self.metadata["DateTime"], "%Y:%m:%d %H:%M:%S")
             except TypeError:

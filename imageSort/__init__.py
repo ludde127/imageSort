@@ -101,26 +101,29 @@ def fast_copy_for_ui(src: pathlib.Path, dst: pathlib.Path):
     files = walker(src, all_extensions)
     yield files
     for file in tqdm(files, total=len(files)):
-        media = Media.from_path(file)
         try:
-            sub_folder = media.y_m_d_folder()
-        except KeyError:
-            # Had no time metadata!
-            sub_folder = "no_metadata"
-        try:
-            full_dst = dst.joinpath(sub_folder)
-            safe_copy(file, full_dst)
-            if media.uncertain_metadata:
-                name_full_dst = file.name
-                splat = name_full_dst.split(".")
-                name, ext = (splat[0], splat[1])
-                name += " uncertain_metadata"
+            media = Media.from_path(file)
+            try:
+                sub_folder = media.y_m_d_folder()
+            except KeyError:
+                # Had no time metadata!
+                sub_folder = "no_metadata"
+            try:
+                full_dst = dst.joinpath(sub_folder)
+                safe_copy(file, full_dst)
+                if media.uncertain_metadata:
+                    name_full_dst = file.name
+                    splat = name_full_dst.split(".")
+                    name, ext = (splat[0], splat[1])
+                    name += " uncertain_metadata"
 
-                new_name = full_dst.joinpath(name + "." + ext)
-                os.rename(full_dst.joinpath(name_full_dst), new_name)
-            yield 1
+                    new_name = full_dst.joinpath(name + "." + ext)
+                    os.rename(full_dst.joinpath(name_full_dst), new_name)
+                yield 1
+            except Exception as e:
+                yield CopyFailed(str(e), str(media.path))
         except Exception as e:
-            yield CopyFailed(str(e), str(media.path))
+            yield CopyFailed(str(e), str(file))
 
 
 def run(src=None, dst=None):
