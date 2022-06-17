@@ -23,12 +23,15 @@ def safe_copy_v2(src: pathlib.Path, dst: pathlib.Path, add_uncertain_metadata_ta
        as the given dst path if that spot was occupied."""
     if add_uncertain_metadata_tag:
         name = dst.name
-        (name_no_ext, ext) = name.split(".")
+        splat = name.split(".")
+        (name_no_ext, ext) = ("".join(splat[:-1]), splat[-1])
         dst = dst.with_name(name_no_ext + "_uncertain_metadata." + ext)
 
     if dst.exists():
         name = dst.name
-        (name_no_ext, ext) = name.split(".")
+        splat = name.split(".")
+        (name_no_ext, ext) = (".".join(splat[:-1]), splat[-1])
+
         depth = 1
         while dst.exists() and depth < max_depth:
             dst = dst.with_name(name_no_ext+f"[{depth}]."+ext)
