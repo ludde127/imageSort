@@ -54,7 +54,7 @@ class UI:
                     self.progress_bar["value"] += output
                     self.progress_bar.update()
                 elif isinstance(output, CopyFailed):
-                    write_txt_row(self.error_filename, f"Failed to copy and sort {output.media_path}")
+                    write_txt_row(self.error_filename, f"Failed to copy and sort {output.media_path}, error: {output.msg}")
                     self.display(f"Failed to copy and sort {output.media_path}", error=True, cont=True)
             self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
         else:
@@ -66,6 +66,7 @@ class UI:
         else:
             self.text_display["text"] = text + ", continuing copy."
         if error:
+            self.text_display["bg"] = "yellow"
             write_txt_row(self.error_filename, text)
 
     def set_dst(self):
@@ -80,8 +81,8 @@ class UI:
         self.label_dest.grid(column=0, row=3, padx=10, pady=5, sticky='NSEW')
         self.src_b.grid(column=1, row=2, padx=10, pady=5, sticky='NSEW')
         self.dest_b.grid(column=1, row=3, padx=10, pady=5, sticky='NSEW')
-        self.begin_sort.grid(row=4, column=0, columnspan=2, sticky='NSEW')
-        self.progress_bar.grid(row=5, column=0, columnspan=2, sticky='NSEW')
+        self.begin_sort.grid(row=4, column=0, columnspan=2, padx=10, pady=5, sticky='NSEW')
+        self.progress_bar.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky='NSEW')
 
 
 def select_file() -> pathlib.Path:

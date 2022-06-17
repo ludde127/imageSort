@@ -2,7 +2,7 @@ import pathlib
 
 import PIL
 
-from backend import safe_copy, video_exts, media_exts, image_exts
+from backend import safe_copy, video_exts, image_exts
 from dataclasses import dataclass
 from PIL import Image
 from PIL.ExifTags import TAGS
@@ -10,6 +10,7 @@ from pprint import pprint
 import datetime
 import os
 from tqdm import tqdm
+
 
 time_field = "DateTime"  # This seems to be a common time_field
 
@@ -75,17 +76,7 @@ class Media:
         pprint({"Path": self.path, "Filename": self.filename, "Metadata": self.metadata})
 
     def datetime(self, as_timestamp=False):
-        if "DateTime" in self.metadata:
-            try:
-                dt = datetime.datetime.strptime(self.metadata["DateTime"], "%Y:%m:%d %H:%M:%S")
-            except TypeError:
-                assert isinstance(self.metadata["DateTime"], float)
-                dt = datetime.datetime.fromtimestamp(self.metadata["DateTime"], datetime.datetime.now().tzinfo)
-
-            if as_timestamp:
-                return dt.timestamp()
-            return dt
-        else:
+        def unprecise():
             try:
                 self.uncertain_metadata = True
                 dt_unprecise = min([os.path.getctime(str(self.path)), os.path.getmtime(str(self.path))])
@@ -95,6 +86,20 @@ class Media:
                 return dt
             except Exception as e:
                 raise e
+
+        if "DateTime" in self.metadata:
+            try:
+                dt = datetime.datetime.strptime(self.metadata["DateTime"], "%Y:%m:%d %H:%M:%S")
+            except TypeError:
+                assert isinstance(self.metadata["DateTime"], float)
+                dt = datetime.datetime.fromtimestamp(self.metadata["DateTime"], datetime.datetime.now().tzinfo)
+            except ValueError:
+                return unprecise()
+            if as_timestamp:
+                return dt.timestamp()
+            return dt
+        else:
+            return unprecise()
 
     def y_m_d_folder(self):
         """Creates a part of a path for example Year 2022/September/Day 23"""

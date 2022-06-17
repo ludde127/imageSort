@@ -1,16 +1,33 @@
 import os
 import shutil
 import pathlib
+import sys
 import time
 
 import yaml
 
 
-def safe_copy(src: pathlib.Path, dst: pathlib.Path):
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+def safe_copy(src: pathlib.Path, dst: pathlib.Path, depth=0):
     if dst.joinpath(src.name).exists():
         name, ext = src.name.split(".")
         name + "[" + str(str(time.time()).split(".")) + "]"
         src = src.with_name(name+"."+ext)
+        if dst.joinpath(src.name).exists():
+            if depth > 10:
+                raise FileExistsError(f"Could not copy file {src} to {dst} as destination\n"
+                                      f" already exists and overwrites are forbidden.")
+            safe_copy(src, dst, depth=depth+1)
         os.makedirs(dst, exist_ok=True)
         shutil.copy2(str(src), str(dst), follow_symlinks=True)
     else:
@@ -19,6 +36,7 @@ def safe_copy(src: pathlib.Path, dst: pathlib.Path):
 
 
 def read_yaml(file, safe=True):
+    file = resource_path(file)  # Needed for PyInstaller
     try:
         with open(file, "r+") as f:
             if safe:
