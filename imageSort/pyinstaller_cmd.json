@@ -112,6 +112,6 @@
  ],
  "nonPyinstallerOptions": {
   "increaseRecursionLimit": true,
-  "manualArguments": ""
+  "manualArguments": "-n ImageSorter"
  }
 }
