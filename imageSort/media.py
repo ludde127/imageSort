@@ -66,7 +66,7 @@ class Media:
             try:
                 meta = get_metadata_image(path, only_keep_time_field=only_keep_time, print_=False)
             except PIL.UnidentifiedImageError as e:
-                print(e)
+                # The image fil is in some ways corrupt, will still be copied.
                 meta = None
         elif ext in video_exts:
             meta = get_metadata_video(path, only_keep_time_field=only_keep_time, print_=False)
@@ -109,64 +109,3 @@ class Media:
         part = "Year " + str(dt.year) + "/" + month_name + "/" + "Day " + str(dt.day)
 
         return part
-
-
-class MediaHolder(list):
-    def sort_by_time(self):
-        self.sort(key=lambda m: m.datetime(as_timestamp=True))
-
-    def add_many(self, paths: list[pathlib.Path]):
-        print("Checking metadata")
-        for path in tqdm(paths):
-            self.append(Media.from_path(path))
-        print(f"Adding {len(paths)} files matching the allowed extensions.")
-
-    def year_month_day(self) -> dict[int,
-                                     dict[int,
-                                          dict[int, list[Media]]]]:
-        """Groups the files into a sorted order from the dates they were taken.
-         The format of the files is year/month/day."""
-        dict_representation = dict()
-        for file in self:
-            try:
-                dt = file.datetime()
-            except KeyError as e:
-                print(e)
-                dt = None
-            if dt is not None:
-                try:
-                    dict_representation[dt.year][dt.month][dt.day].append(file)
-                except KeyError:
-                    if dt.year not in dict_representation:
-                        dict_representation[dt.year] = dict()
-                    if dt.month not in dict_representation[dt.year]:
-                        dict_representation[dt.year][dt.month] = dict()
-                    if dt.day not in dict_representation[dt.year][dt.month]:
-                        dict_representation[dt.year][dt.month][dt.day] = list()
-                    dict_representation[dt.year][dt.month][dt.day].append(file)
-        return dict_representation
-
-    def copy_with_new_names(self, destination_folder: pathlib.Path,
-                            name_description: dict[int, dict[int, dict[int, list[Media]]]]):
-        """Copies the files into their new correct folders, will not change filenames."""
-        print("Starting copying of files.")
-        moved = 0
-        tq = tqdm(total=len(self))
-        for year in name_description.keys():
-            for month in name_description[year].keys():
-                for day in name_description[year][month].keys():
-                    for image in name_description[year][month][day]:
-                        month_name = "{0:%B}".format(image.datetime())
-                        safe_copy(image.path,
-                                  destination_folder.joinpath("Year " + str(year)).joinpath(month_name).
-                                  joinpath("Day " + str(day)))
-                        moved += 1
-                        tq.update(1)
-                        self.remove(image)
-        for file in self:
-            """Those with no datetime"""
-            safe_copy(file.path, destination_folder.joinpath("Not_enough_metadata"))
-            moved += 1
-            tq.update(1)
-        print(f"Moved {moved} images or videos.")
-

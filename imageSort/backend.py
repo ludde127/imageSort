@@ -18,21 +18,32 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-def safe_copy(src: pathlib.Path, dst: pathlib.Path, depth=0):
-    if dst.joinpath(src.name).exists():
-        name, ext = src.name.split(".")
-        name + "[" + str(str(time.time()).split(".")) + "]"
-        src = src.with_name(name+"."+ext)
-        if dst.joinpath(src.name).exists():
-            if depth > 10:
-                raise FileExistsError(f"Could not copy file {src} to {dst} as destination\n"
-                                      f" already exists and overwrites are forbidden.")
-            safe_copy(src, dst, depth=depth+1)
-        os.makedirs(dst, exist_ok=True)
-        shutil.copy2(str(src), str(dst), follow_symlinks=True)
+def safe_copy_v2(src: pathlib.Path, dst: pathlib.Path, add_uncertain_metadata_tag=False, max_depth=10) -> pathlib.Path:
+    """This copies the files and never overwrites any files, it returns the final path which may not be the same
+       as the given dst path if that spot was occupied."""
+    if add_uncertain_metadata_tag:
+        name = dst.name
+        (name_no_ext, ext) = name.split(".")
+        dst = dst.with_name(name_no_ext + "_uncertain_metadata." + ext)
+
+    if dst.exists():
+        name = dst.name
+        (name_no_ext, ext) = name.split(".")
+        depth = 1
+        while dst.exists() and depth < max_depth:
+            dst = dst.with_name(name_no_ext+f"[{depth}]."+ext)
+            depth += 1
+
+        if not dst.exists():
+            os.makedirs(dst.parent, exist_ok=True)
+            return pathlib.Path(shutil.copy2(src, dst))
+        else:
+            raise CopyFailed(f"Copy failed on {src} -> {dst} as max depth while avoiding overwrite was succeded",
+                             media_path=str(src))
+
     else:
-        os.makedirs(dst, exist_ok=True)
-        shutil.copy2(str(src), str(dst), follow_symlinks=True)
+        os.makedirs(dst.parent, exist_ok=True)
+        return pathlib.Path(shutil.copy2(src, dst))
 
 
 def read_yaml(file, safe=True):
@@ -85,7 +96,7 @@ video_exts = {e.lower() for e in set(read_yaml("extensions/videos.yaml")["format
 all_extensions = image_exts.union(media_exts.union(video_exts))
 
 
-def walker(dir, extensions: list[str]):
+def walker(dir, extensions: list[str]) -> set[pathlib.Path]:
     """This function will return all possible file paths from a dir, its an recursive use of os.walk(dir)"""
     paths = set()
     assert isinstance(paths, set)

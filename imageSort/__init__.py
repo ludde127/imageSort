@@ -1,13 +1,12 @@
-import os
 import time
 
 from tqdm import tqdm
-from media import Media, MediaHolder
+from media import Media
 import pathlib
 import tkinter as tk
 from tkinter import Button
 from tkinter import filedialog
-from backend import walker, all_extensions, safe_copy, write_txt_row, CopyFailed
+from backend import walker, all_extensions, safe_copy_v2, write_txt_row, CopyFailed
 from tkinter import ttk
 
 WIDTH = 500
@@ -27,7 +26,7 @@ class UI:
         self.label_dest = tk.Label(master, text="Select the destination folder.")
         self.src_b = Button(master, text="...", command=lambda: self.set_src())
         self.dest_b = Button(master, text="...", command=lambda: self.set_dst())
-        self.begin_sort = Button(master, text="Begin copying and sort images.", command=lambda: self.begin())
+        self.begin_sort = Button(master, text="Begin to copy and sort images.", command=lambda: self.begin())
         self.progress_bar = ttk.Progressbar(master, orient=tk.HORIZONTAL, length=WIDTH-20, mode="determinate")
 
     def set_src(self):
@@ -45,7 +44,7 @@ class UI:
             for output in fast_copy_for_ui(self.source, self.dest):
                 if first:
                     to_move = len(output)
-                    self.display(f"Began copying and sorting {to_move} media files.")
+                    self.display(f"Began to copy and sort {to_move} media files.")
                     self.progress_bar["maximum"] = to_move
 
                     first = False
@@ -53,21 +52,30 @@ class UI:
                     moved += output
                     self.progress_bar["value"] += output
                     self.progress_bar.update()
+                    percent = moved/to_move
+                    self.display(f"Have sorted and copied {(percent*100):.1f} % ({moved}/{to_move})", success=True)
+
                 elif isinstance(output, CopyFailed):
-                    write_txt_row(self.error_filename, f"Failed to copy and sort {output.media_path}, error: {output.msg}")
-                    self.display(f"Failed to copy and sort {output.media_path}", error=True, cont=True)
-            self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
+                    write_txt_row(self.error_filename, f"Error info {output.msg}, {output.media_path}")
+                    #self.display(f"Failed to copy and sort \n{output.media_path}", error=True, cont=True)
+            if moved == to_move:
+                self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
+            else:
+                self.display(f"Correctly moved and sorted {moved}/{to_move} files, some were not moved\n"
+                             f"check '{self.error_filename}' for those files.")
         else:
             self.display("You must select both a source folder and an\n destination folder before beginning.")
 
-    def display(self, text: str, error=False, cont=False):
+    def display(self, text: str, error=False, cont=False, success=False):
         if not cont:
             self.text_display["text"] = text
         else:
             self.text_display["text"] = text + ", continuing copy."
         if error:
             self.text_display["bg"] = "yellow"
-            write_txt_row(self.error_filename, text)
+            write_txt_row(self.error_filename, text + f" error info {error.msg}, {error.media_path}")
+        elif success:
+            self.text_display["bg"] = "#62eb23"
 
     def set_dst(self):
         folder = select_folder()
@@ -93,10 +101,6 @@ def select_folder() -> pathlib.Path:
     return pathlib.Path(filedialog.askdirectory())
 
 
-def fast_copy(src: pathlib.Path, dst: pathlib.Path):
-    list(fast_copy_for_ui(src, dst))
-
-
 def fast_copy_for_ui(src: pathlib.Path, dst: pathlib.Path):
     files = walker(src, all_extensions)
     yield files
@@ -109,29 +113,14 @@ def fast_copy_for_ui(src: pathlib.Path, dst: pathlib.Path):
                 # Had no time metadata!
                 sub_folder = "no_metadata"
             try:
-                full_dst = dst.joinpath(sub_folder)
-                safe_copy(file, full_dst)
-                if media.uncertain_metadata:
-                    name_full_dst = file.name
-                    splat = name_full_dst.split(".")
-                    name, ext = (splat[0], splat[1])
-                    name += " uncertain_metadata"
-
-                    new_name = full_dst.joinpath(name + "." + ext)
-                    os.rename(full_dst.joinpath(name_full_dst), new_name)
+                full_dst = dst.joinpath(sub_folder).joinpath(file.name)
+                final_path = safe_copy_v2(file, full_dst, add_uncertain_metadata_tag=media.uncertain_metadata)
+                assert final_path.exists() and final_path.is_file()
                 yield 1
             except Exception as e:
                 yield CopyFailed(str(e), str(media.path))
         except Exception as e:
             yield CopyFailed(str(e), str(file))
-
-
-def run(src=None, dst=None):
-    if src is None:
-        src = select_folder()
-    if dst is None:
-        dst = select_folder()
-    fast_copy(src, dst)
 
 
 def inspect_image():
