@@ -2,14 +2,13 @@ import pathlib
 
 import PIL
 
-from backend import safe_copy, video_exts, image_exts
+from backend import video_exts, image_exts
 from dataclasses import dataclass
 from PIL import Image
 from PIL.ExifTags import TAGS
 from pprint import pprint
 import datetime
 import os
-from tqdm import tqdm
 
 
 time_field = "DateTime"  # This seems to be a common time_field

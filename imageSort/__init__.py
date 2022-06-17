@@ -1,3 +1,5 @@
+import os.path
+import shutil
 import time
 
 from tqdm import tqdm
@@ -36,33 +38,46 @@ class UI:
             self.source = folder
             self.src_b["text"] = self.source
 
+    def enough_storage_space(self) -> bool:
+        """True if available space > needed. Defaults to false if paths are not specified."""
+        if self.source is not None and self.dest is not None:
+            root_directory = self.source
+            src_size = sum(f.stat().st_size for f in root_directory.rglob('**/*') if f.is_file())
+            (_, _, free_dst) = shutil.disk_usage(str(self.dest))
+            return free_dst > src_size * 1.05  # Adds a small part to be safe
+        return False
+
     def begin(self):
         if self.source is not None and self.dest is not None:
-            first = True
-            to_move = 0
-            moved = 0
-            for output in fast_copy_for_ui(self.source, self.dest):
-                if first:
-                    to_move = len(output)
-                    self.display(f"Began to copy and sort {to_move} media files.")
-                    self.progress_bar["maximum"] = to_move
+            self.text_display["text"] = "Checking if you have the needed amount\n of disk space to copy the files."
+            if self.enough_storage_space():
+                first = True
+                to_move = 0
+                moved = 0
+                for output in fast_copy_for_ui(self.source, self.dest):
+                    if first:
+                        to_move = len(output)
+                        self.display(f"Began to copy and sort {to_move} media files.")
+                        self.progress_bar["maximum"] = to_move
 
-                    first = False
-                elif isinstance(output, int):
-                    moved += output
-                    self.progress_bar["value"] += output
-                    self.progress_bar.update()
-                    percent = moved/to_move
-                    self.display(f"Have sorted and copied {(percent*100):.1f} % ({moved}/{to_move})", success=True)
+                        first = False
+                    elif isinstance(output, int):
+                        moved += output
+                        self.progress_bar["value"] += output
+                        self.progress_bar.update()
+                        percent = moved/to_move
+                        self.display(f"Have sorted and copied {(percent*100):.1f} % ({moved}/{to_move})", success=True)
 
-                elif isinstance(output, CopyFailed):
-                    write_txt_row(self.error_filename, f"Error info {output.msg}, {output.media_path}")
-                    #self.display(f"Failed to copy and sort \n{output.media_path}", error=True, cont=True)
-            if moved == to_move:
-                self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
+                    elif isinstance(output, CopyFailed):
+                        write_txt_row(self.error_filename, f"Error info {output.msg}, {output.media_path}")
+                        #self.display(f"Failed to copy and sort \n{output.media_path}", error=True, cont=True)
+                if moved == to_move:
+                    self.display(f"Correctly moved and sorted {moved}/{to_move} files!")
+                else:
+                    self.display(f"Correctly moved and sorted {moved}/{to_move} files, some were not moved\n"
+                                 f"check '{self.error_filename}' for those files.")
             else:
-                self.display(f"Correctly moved and sorted {moved}/{to_move} files, some were not moved\n"
-                             f"check '{self.error_filename}' for those files.")
+                self.display(f"You do not have enough storage space to copy those files.", error=True)
         else:
             self.display("You must select both a source folder and an\n destination folder before beginning.")
 
@@ -73,7 +88,7 @@ class UI:
             self.text_display["text"] = text + ", continuing copy."
         if error:
             self.text_display["bg"] = "yellow"
-            write_txt_row(self.error_filename, text + f" error info {error.msg}, {error.media_path}")
+            write_txt_row(self.error_filename, text)
         elif success:
             self.text_display["bg"] = "#62eb23"
 
